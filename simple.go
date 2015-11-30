@@ -1,14 +1,17 @@
 package main
 
 import (
-	"crypto/tls"
+	//"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/transform"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
+	"regexp"
 	"runtime"
 	"time"
 )
@@ -26,13 +29,12 @@ func noRedirect(req *http.Request, via []*http.Request) error {
 }
 
 func main() {
-	os.Setenv("HTTP_PROXY", "http://192.168.14.140:8888")
-	proxyUrl, _ := url.Parse("https://192.168.14.140:8888")
+	//proxyUrl, _ := url.Parse("https://192.168.14.140:8888")
 	runtime.GOMAXPROCS(16)
 	transport := http.Transport{
-		Dial:            dialTimeout,
-		Proxy:           http.ProxyURL(proxyUrl),
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Dial: dialTimeout,
+		//Proxy:           http.ProxyURL(proxyUrl),
+		//TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
 	jar := NewJar()
@@ -81,12 +83,21 @@ func main() {
 	respMye1Redirected, _ := client.Get(redirectMye1Location)
 	fmt.Printf("Redirected mye1 result: %v\n", respMye1Redirected.StatusCode)
 
-	loginUrl := "https://passport.ngs.ru/e1/login/?redirect_path=http%3A%2F%2Fwww.e1.ru%2Ftalk%2Fforum%2Fpm%2Findex.php"
+	settingsBin, settingsErr := ioutil.ReadFile("config.json")
+	if settingsErr != nil {
+		fmt.Printf("Can't read settings\n", settingsErr)
+		return
+	}
+	settings := new(Settings)
+	json.Unmarshal(settingsBin, settings)
+
+	loginUrl := "https://passport.ngs.ru/e1/login/?redirect_path=http%3A%2F%2Fwww.e1.ru%2Ftalk%2Fforum%2Fpm%2F"
 	values := url.Values{
 		"sub":      {"login"},
 		"key":      {""},
-		"email":    {"minya.drel@gmail.com"},
-		"password": {""}}
+		"email":    {settings.credentials.email},
+		"password": {settings.credentials.password},
+	}
 
 	respLogin, errLogin := client.PostForm(loginUrl, values)
 	if urlError, ok := errLogin.(*url.Error); ok && urlError.Err == RedirectAttemptedError {
@@ -126,10 +137,31 @@ func main() {
 		return
 	}
 
-	body, errReadBody := ioutil.ReadAll(respPm.Body)
+	tr := transform.NewReader(respPm.Body, charmap.Windows1251.NewDecoder())
+
+	body, errReadBody := ioutil.ReadAll(tr)
+
 	if nil != errReadBody {
+		fmt.Errorf("Can't read body: %v\n", errReadBody)
+		return
 	}
 
 	html := string(body)
-	fmt.Printf(html)
+
+	regex, _ := regexp.Compile("<span class=\"text_orange\"><strong>Новое!</strong></span><br><span class=\"small_gray\">(.*)</span>")
+
+	match := regex.FindStringSubmatch(html)
+	if len(match) < 2 {
+		fmt.Println("No new messages matched")
+		return
+	}
+
+	dateOfLastPm := match[1]
+	dateOfLastSeenPmBin, _ := ioutil.ReadFile("lastseen.txt")
+	if dateOfLastPm != string(dateOfLastSeenPmBin) {
+		fmt.Printf("New! %v\n", dateOfLastPm)
+		ioutil.WriteFile("lastseen.txt", []byte(dateOfLastPm), 0660)
+	} else {
+		fmt.Printf("Already seen\n")
+	}
 }
