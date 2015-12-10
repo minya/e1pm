@@ -3,6 +3,11 @@
         "credentials": {
             "email": "foo@bar.com",
             "password": "Pa$$w0rd"
+        },
+        "pushover": {
+            "token": "blabla",
+            "user": "lablab"
         }
+
     }
 ]

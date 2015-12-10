@@ -8,19 +8,11 @@ import (
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/transform"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"runtime"
-	"time"
 )
-
-var timeout = time.Duration(10 * time.Second)
-
-func dialTimeout(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, timeout)
-}
 
 var RedirectAttemptedError = errors.New("redirect")
 
@@ -29,17 +21,12 @@ func noRedirect(req *http.Request, via []*http.Request) error {
 }
 
 func main() {
-	//proxyUrl, _ := url.Parse("https://192.168.14.140:8888")
 	runtime.GOMAXPROCS(16)
-	transport := http.Transport{
-		Dial: dialTimeout,
-		//Proxy:           http.ProxyURL(proxyUrl),
-		//TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
 
 	jar := NewJar()
+	transport := DefaultTransport()
 	client := http.Client{
-		Transport:     &transport,
+		Transport:     transport,
 		Jar:           jar,
 		CheckRedirect: noRedirect,
 	}
@@ -88,15 +75,22 @@ func main() {
 		fmt.Printf("Can't read settings\n", settingsErr)
 		return
 	}
-	settings := new(Settings)
-	json.Unmarshal(settingsBin, settings)
+
+	var settings Settings
+	//var f interface{}
+	errSettings := json.Unmarshal(settingsBin, &settings)
+	fmt.Printf("Settings obtained: %v\n", settings)
+	if nil != errSettings {
+		fmt.Printf("Can't read settings: %v\n", errSettings)
+		return
+	}
 
 	loginUrl := "https://passport.ngs.ru/e1/login/?redirect_path=http%3A%2F%2Fwww.e1.ru%2Ftalk%2Fforum%2Fpm%2F"
 	values := url.Values{
 		"sub":      {"login"},
 		"key":      {""},
-		"email":    {settings.credentials.email},
-		"password": {settings.credentials.password},
+		"email":    {settings.Credentials.Email},
+		"password": {settings.Credentials.Password},
 	}
 
 	respLogin, errLogin := client.PostForm(loginUrl, values)
@@ -159,6 +153,12 @@ func main() {
 	dateOfLastPm := match[1]
 	dateOfLastSeenPmBin, _ := ioutil.ReadFile("lastseen.txt")
 	if dateOfLastPm != string(dateOfLastSeenPmBin) {
+		sendRes, sendErr := SendMessage(settings.Pushover.Token, settings.Pushover.User, "New PM on e1.ru")
+		if nil != sendErr {
+			fmt.Printf("Can't send push: %v\n", sendErr)
+		} else {
+			fmt.Printf("Push sent: %v\n", sendRes)
+		}
 		fmt.Printf("New! %v\n", dateOfLastPm)
 		ioutil.WriteFile("lastseen.txt", []byte(dateOfLastPm), 0660)
 	} else {
