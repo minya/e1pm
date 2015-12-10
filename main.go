@@ -10,6 +10,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os/user"
+	"path"
 	"regexp"
 	"runtime"
 )
@@ -30,6 +32,11 @@ func main() {
 		Jar:           jar,
 		CheckRedirect: noRedirect,
 	}
+
+	user, _ := user.Current()
+	settingsRoot := path.Join(user.HomeDir, ".e1pm")
+	settingsPath := path.Join(settingsRoot, "config.json")
+	lastseenPath := path.Join(settingsRoot, "lastseen.txt")
 
 	pmUrl := "http://www.e1.ru/talk/forum/pm/index.php"
 	pmResult, err := client.Get(pmUrl)
@@ -70,7 +77,7 @@ func main() {
 	respMye1Redirected, _ := client.Get(redirectMye1Location)
 	fmt.Printf("Redirected mye1 result: %v\n", respMye1Redirected.StatusCode)
 
-	settingsBin, settingsErr := ioutil.ReadFile("config.json")
+	settingsBin, settingsErr := ioutil.ReadFile(settingsPath)
 	if settingsErr != nil {
 		fmt.Printf("Can't read settings\n", settingsErr)
 		return
@@ -151,7 +158,7 @@ func main() {
 	}
 
 	dateOfLastPm := match[1]
-	dateOfLastSeenPmBin, _ := ioutil.ReadFile("lastseen.txt")
+	dateOfLastSeenPmBin, _ := ioutil.ReadFile(lastseenPath)
 	if dateOfLastPm != string(dateOfLastSeenPmBin) {
 		sendRes, sendErr := SendMessage(settings.Pushover.Token, settings.Pushover.User, "New PM on e1.ru")
 		if nil != sendErr {
@@ -160,7 +167,7 @@ func main() {
 			fmt.Printf("Push sent: %v\n", sendRes)
 		}
 		fmt.Printf("New! %v\n", dateOfLastPm)
-		ioutil.WriteFile("lastseen.txt", []byte(dateOfLastPm), 0660)
+		ioutil.WriteFile(lastseenPath, []byte(dateOfLastPm), 0660)
 	} else {
 		fmt.Printf("Already seen\n")
 	}
