@@ -28,9 +28,9 @@ func main() {
 	jar := NewJar()
 	transport := DefaultTransport()
 	client := http.Client{
-		Transport:     transport,
-		Jar:           jar,
-		CheckRedirect: noRedirect,
+		Transport: transport,
+		Jar:       jar,
+		//CheckRedirect: noRedirect,
 	}
 
 	user, _ := user.Current()
@@ -40,42 +40,11 @@ func main() {
 
 	pmUrl := "http://www.e1.ru/talk/forum/pm/index.php"
 	pmResult, err := client.Get(pmUrl)
-	if urlError, ok := err.(*url.Error); ok && urlError.Err == RedirectAttemptedError {
-		err = nil
-	}
 	if nil != err {
 		fmt.Printf("error fetch %v\n", pmUrl)
 		return
 	}
 	pmResult.Body.Close()
-	if pmResult.StatusCode != 302 {
-		fmt.Printf("%v from %v, 302 expected\n", pmResult.StatusCode, pmUrl)
-	}
-
-	mye1Location := pmResult.Header.Get("Location")
-	fmt.Printf("mye1 location: %v\n", mye1Location)
-
-	respMye1, _ := client.Get(mye1Location)
-
-	checkLocation := respMye1.Header.Get("Location")
-	fmt.Printf("Myie: %v %v\n", respMye1.StatusCode, checkLocation)
-	fmt.Printf("Check location: %v \n", checkLocation)
-
-	respCheck, _ := client.Get(checkLocation)
-	fmt.Printf("Check result: %v\n", respCheck.StatusCode, checkLocation)
-	setNgsCookieLocation := respCheck.Header.Get("Location")
-	fmt.Printf("Ngs set cookie location: %v\n", setNgsCookieLocation)
-
-	respNgsSetCookie, _ := client.Get(setNgsCookieLocation)
-	ngsAfterSetCookieLocation := respNgsSetCookie.Header.Get("Location")
-	fmt.Printf("Set ngs cookie result: %v %v\n", respNgsSetCookie.StatusCode, ngsAfterSetCookieLocation)
-
-	respNgsAfterSetCookie, _ := client.Get(ngsAfterSetCookieLocation)
-	redirectMye1Location := respNgsAfterSetCookie.Header.Get("Location")
-	fmt.Printf("After ngs cookie result: %v %v\n", respNgsAfterSetCookie.StatusCode, redirectMye1Location)
-
-	respMye1Redirected, _ := client.Get(redirectMye1Location)
-	fmt.Printf("Redirected mye1 result: %v\n", respMye1Redirected.StatusCode)
 
 	settingsBin, settingsErr := ioutil.ReadFile(settingsPath)
 	if settingsErr != nil {
@@ -84,9 +53,7 @@ func main() {
 	}
 
 	var settings Settings
-	//var f interface{}
 	errSettings := json.Unmarshal(settingsBin, &settings)
-	fmt.Printf("Settings obtained: %v\n", settings)
 	if nil != errSettings {
 		fmt.Printf("Can't read settings: %v\n", errSettings)
 		return
@@ -110,35 +77,9 @@ func main() {
 		return
 	}
 
-	if 302 != respLogin.StatusCode {
-		fmt.Printf("302 expected at login, but %v taken\n", errLogin)
-		return
-	}
+	fmt.Printf("After post: %v\n", respLogin)
 
-	redirectUrl := respLogin.Header.Get("Location")
-	fmt.Printf("redirect url: %v \n", redirectUrl)
-
-	respRedirect, errRedirect := client.Get(redirectUrl)
-	if urlError, ok := errRedirect.(*url.Error); ok && urlError.Err == RedirectAttemptedError {
-		errRedirect = nil
-	}
-
-	if nil != errRedirect {
-		fmt.Printf("err on redirect %v\n", errRedirect)
-		return
-	}
-
-	nextRedirectUrl := respRedirect.Header.Get("Location")
-	fmt.Printf("%v %v\n", respRedirect.StatusCode, nextRedirectUrl)
-
-	respPm, errPm := client.Get(nextRedirectUrl)
-
-	if nil != errPm {
-		fmt.Printf("Error get pm page after authentication: %v\n", errPm)
-		return
-	}
-
-	tr := transform.NewReader(respPm.Body, charmap.Windows1251.NewDecoder())
+	tr := transform.NewReader(respLogin.Body, charmap.Windows1251.NewDecoder())
 
 	body, errReadBody := ioutil.ReadAll(tr)
 
