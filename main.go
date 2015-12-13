@@ -1,9 +1,7 @@
 package main
 
 import (
-	//"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/transform"
@@ -16,12 +14,6 @@ import (
 	"runtime"
 )
 
-var RedirectAttemptedError = errors.New("redirect")
-
-func noRedirect(req *http.Request, via []*http.Request) error {
-	return RedirectAttemptedError
-}
-
 func main() {
 	runtime.GOMAXPROCS(16)
 
@@ -30,7 +22,6 @@ func main() {
 	client := http.Client{
 		Transport: transport,
 		Jar:       jar,
-		//CheckRedirect: noRedirect,
 	}
 
 	user, _ := user.Current()
@@ -38,17 +29,17 @@ func main() {
 	settingsPath := path.Join(settingsRoot, "config.json")
 	lastseenPath := path.Join(settingsRoot, "lastseen.txt")
 
-	pmUrl := "http://www.e1.ru/talk/forum/pm/index.php"
-	pmResult, err := client.Get(pmUrl)
+	pmURL := "http://www.e1.ru/talk/forum/pm/index.php"
+	pmResult, err := client.Get(pmURL)
 	if nil != err {
-		fmt.Printf("error fetch %v\n", pmUrl)
+		fmt.Printf("error fetch %v\n", pmURL)
 		return
 	}
 	pmResult.Body.Close()
 
 	settingsBin, settingsErr := ioutil.ReadFile(settingsPath)
 	if settingsErr != nil {
-		fmt.Printf("Can't read settings\n", settingsErr)
+		fmt.Printf("Can't read settings: %v\n", settingsErr)
 		return
 	}
 
@@ -59,7 +50,7 @@ func main() {
 		return
 	}
 
-	loginUrl := "https://passport.ngs.ru/e1/login/?redirect_path=http%3A%2F%2Fwww.e1.ru%2Ftalk%2Fforum%2Fpm%2F"
+	loginURL := "https://passport.ngs.ru/e1/login/?redirect_path=http%3A%2F%2Fwww.e1.ru%2Ftalk%2Fforum%2Fpm%2F"
 	values := url.Values{
 		"sub":      {"login"},
 		"key":      {""},
@@ -67,24 +58,18 @@ func main() {
 		"password": {settings.Credentials.Password},
 	}
 
-	respLogin, errLogin := client.PostForm(loginUrl, values)
-	if urlError, ok := errLogin.(*url.Error); ok && urlError.Err == RedirectAttemptedError {
-		errLogin = nil
-	}
-
+	respLogin, errLogin := client.PostForm(loginURL, values)
 	if nil != errLogin {
 		fmt.Printf("Error login: %v\n", errLogin)
 		return
 	}
-
-	fmt.Printf("After post: %v\n", respLogin)
 
 	tr := transform.NewReader(respLogin.Body, charmap.Windows1251.NewDecoder())
 
 	body, errReadBody := ioutil.ReadAll(tr)
 
 	if nil != errReadBody {
-		fmt.Errorf("Can't read body: %v\n", errReadBody)
+		fmt.Printf("Can't read body: %v\n", errReadBody)
 		return
 	}
 
