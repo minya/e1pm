@@ -29,7 +29,7 @@ func main() {
 	settingsPath := path.Join(settingsRoot, "config.json")
 	lastseenPath := path.Join(settingsRoot, "lastseen.txt")
 
-	pmURL := "http://www.e1.ru/talk/forum/pm/index.php"
+	pmURL := "http://www.e1.ru/talk/forum/pm/"
 	pmResult, err := client.Get(pmURL)
 	if nil != err {
 		fmt.Printf("error fetch %v\n", pmURL)
@@ -50,7 +50,10 @@ func main() {
 		return
 	}
 
-	loginURL := "https://passport.ngs.ru/e1/login/?redirect_path=http%3A%2F%2Fwww.e1.ru%2Ftalk%2Fforum%2Fpm%2F"
+	loginURL := fmt.Sprintf(
+		"https://passport.ngs.ru/e1/login/?redirect_path=%s",
+		url.QueryEscape(pmURL))
+
 	values := url.Values{
 		"sub":      {"login"},
 		"key":      {""},
@@ -67,6 +70,7 @@ func main() {
 	tr := transform.NewReader(respLogin.Body, charmap.Windows1251.NewDecoder())
 
 	body, errReadBody := ioutil.ReadAll(tr)
+	respLogin.Body.Close()
 
 	if nil != errReadBody {
 		fmt.Printf("Can't read body: %v\n", errReadBody)
