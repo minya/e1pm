@@ -6,11 +6,13 @@ import (
 	"sync"
 )
 
+//Jar cookie jar object
 type Jar struct {
 	lk      sync.Mutex
 	cookies map[string]map[string]*http.Cookie
 }
 
+// NewJar allocates new jar object
 func NewJar() *Jar {
 	jar := new(Jar)
 	jar.cookies = make(map[string]map[string]*http.Cookie)

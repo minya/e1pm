@@ -87,6 +87,8 @@ func main() {
 		return
 	}
 
+	fmt.Printf("%v\n", match[0])
+
 	dateOfLastPm := match[1]
 	dateOfLastSeenPmBin, _ := ioutil.ReadFile(lastseenPath)
 	if dateOfLastPm != string(dateOfLastSeenPmBin) {

@@ -9,11 +9,13 @@ import (
 	"net/url"
 )
 
+// PushoverResult struct represents response from pushover
 type PushoverResult struct {
 	Status  int    `json:"status"`
 	Request string `json:"request"`
 }
 
+// SendMessage sends message to pushover
 func SendMessage(token string, user string, msg string) (res *PushoverResult, e error) {
 	transport := DefaultTransport()
 	client := http.Client{
