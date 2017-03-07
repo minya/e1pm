@@ -3,3 +3,4 @@
 e1pm
 config.json
 lastseen.txt
+*.log

@@ -1,20 +1,35 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"github.com/minya/e1pm/pmlib"
 	"github.com/minya/gopushover"
 	"github.com/minya/goutils/config"
 	"io/ioutil"
+	"log"
+	"os"
 	"os/user"
 	"path"
 )
 
+var logPath string
+
+func init() {
+	const (
+		defaultLogPath = "e1pm.log"
+	)
+	flag.StringVar(&logPath, "logpath", defaultLogPath, "Path to write logs")
+
+}
+
 func main() {
+	flag.Parse()
+	SetUpLogger()
+
 	var settings Settings
 	errSettings := config.UnmarshalJson(&settings, ".e1pm/config.json")
 	if nil != errSettings {
-		fmt.Printf("Can't read settings: %v\n", errSettings)
+		log.Printf("Can't read settings: %v\n", errSettings)
 		return
 	}
 
@@ -22,18 +37,18 @@ func main() {
 
 	setUpErr := pmClient.SetUp(settings.Credentials.Email, settings.Credentials.Password)
 	if setUpErr != nil {
-		fmt.Printf("Error SetUp: %v\n", setUpErr)
+		log.Printf("Error SetUp: %v\n", setUpErr)
 		return
 	}
 
 	topicList, topicListErr := pmClient.GetPmTopics()
 	if topicListErr != nil {
-		fmt.Printf("Error GetTopics: %v\n", topicListErr)
+		log.Printf("Error GetTopics: %v\n", topicListErr)
 		return
 	}
 
 	if len(topicList) == 0 {
-		fmt.Println("Error: no topics read\n")
+		log.Println("Error: no topics read\n")
 		return
 	}
 
@@ -48,13 +63,21 @@ func main() {
 		sendRes, sendErr := gopushover.SendMessage(
 			settings.Pushover.Token, settings.Pushover.User, lastTopic.Subject, lastTopic.LastMsg)
 		if nil != sendErr {
-			fmt.Printf("Can't send push: %v\n", sendErr)
+			log.Printf("Can't send push: %v\n", sendErr)
 		} else {
-			fmt.Printf("Push sent: %v\n", sendRes)
+			log.Printf("Push sent: %v\n", sendRes)
 		}
-		fmt.Printf("New! %v\n", dateOfLastPm)
+		log.Printf("New! %v\n", dateOfLastPm)
 		ioutil.WriteFile(lastseenPath, []byte(dateOfLastPm), 0660)
 	} else {
-		fmt.Printf("Already seen\n")
+		log.Printf("Already seen\n")
 	}
+}
+
+func SetUpLogger() {
+	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	log.SetOutput(logFile)
 }
