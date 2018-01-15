@@ -2,14 +2,15 @@ package main
 
 import (
 	"flag"
-	"github.com/minya/e1pm/pmlib"
-	"github.com/minya/gopushover"
-	"github.com/minya/goutils/config"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
 	"path"
+
+	"github.com/minya/e1pm/pmlib"
+	"github.com/minya/gopushover"
+	"github.com/minya/goutils/config"
 )
 
 var logPath string
@@ -27,7 +28,7 @@ func main() {
 	SetUpLogger()
 
 	var settings Settings
-	errSettings := config.UnmarshalJson(&settings, ".e1pm/config.json")
+	errSettings := config.UnmarshalJson(&settings, "~/.e1pm/config.json")
 	if nil != errSettings {
 		log.Printf("Can't read settings: %v\n", errSettings)
 		return
